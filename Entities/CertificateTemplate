@@ -1,0 +1,53 @@
+{
+  "name": "CertificateTemplate",
+  "type": "object",
+  "properties": {
+    "background_url": {
+      "type": "string",
+      "description": "URL da imagem de fundo do certificado"
+    },
+    "name_position": {
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "number",
+          "description": "Posição X do nome (em porcentagem)"
+        },
+        "y": {
+          "type": "number",
+          "description": "Posição Y do nome (em porcentagem)"
+        },
+        "fontSize": {
+          "type": "number",
+          "description": "Tamanho da fonte do nome"
+        }
+      }
+    },
+    "type_position": {
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "number",
+          "description": "Posição X do tipo (em porcentagem)",
+          "default": 50
+        },
+        "y": {
+          "type": "number",
+          "description": "Posição Y do tipo (em porcentagem)",
+          "default": 60
+        },
+        "fontSize": {
+          "type": "number",
+          "description": "Tamanho da fonte do tipo",
+          "default": 18
+        }
+      }
+    },
+    "is_active": {
+      "type": "boolean",
+      "default": false,
+      "description": "Se este é o template ativo"
+    }
+  },
+  "required": []
+}

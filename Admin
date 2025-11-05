@@ -1,0 +1,783 @@
+
+import React, { useState, useEffect } from "react";
+import { Registration } from "@/entities/Registration";
+import { CertificateTemplate } from "@/entities/CertificateTemplate";
+import { createPageUrl } from "@/utils";
+import { SendEmail } from "@/integrations/Core";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+  CardFooter,
+} from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Download,
+  Search,
+  CheckCircle2,
+  XCircle,
+  UserPlus,
+  LogOut,
+  Users,
+  FileText,
+  Mail,
+  Filter,
+  RefreshCw,
+  Image,
+} from "lucide-react";
+import { useToast } from "@/components/ui/use-toast";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
+import CertificateConfig from "../components/admin/CertificateConfig";
+
+export default function Admin() {
+  const [registrations, setRegistrations] = useState([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState("list");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [typeFilter, setTypeFilter] = useState("all");
+  const [stats, setStats] = useState({
+    total: 0,
+    delegados: 0,
+    observadores: 0,
+    convidados: 0,
+    certificados: 0
+  });
+
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    institution: "",
+    type: "delegado",
+    representation: "", // added representation field
+  });
+  
+  const { toast } = useToast();
+
+  useEffect(() => {
+    checkAdminAndLoadData();
+  }, []);
+
+  const checkAdminAndLoadData = async () => {
+    try {
+      const isAdmin = localStorage.getItem('adminAuth') === 'true';
+      if (!isAdmin) {
+        window.location.href = createPageUrl("Register");
+        return;
+      }
+      loadRegistrations();
+    } catch (e) {
+      window.location.href = createPageUrl("Register");
+    }
+  };
+
+  const loadRegistrations = async () => {
+    setIsLoading(true);
+    try {
+      const data = await Registration.list("-created_date");
+      setRegistrations(data);
+      
+      const delegados = data.filter(r => r.type === "delegado").length;
+      const observadores = data.filter(r => r.type === "observador").length;
+      const convidados = data.filter(r => r.type === "convidado").length;
+      const certificados = data.filter(r => r.certificate_authorized).length;
+      
+      setStats({
+        total: data.length,
+        delegados,
+        observadores,
+        convidados,
+        certificados
+      });
+      
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Erro ao carregar inscrições",
+        description: "Não foi possível carregar a lista de inscritos.",
+      });
+    }
+    setIsLoading(false);
+  };
+
+  const handleCertificateAuthorization = async (registration, authorized) => {
+    try {
+      await Registration.update(registration.id, {
+        certificate_authorized: authorized
+      });
+      loadRegistrations();
+      toast({
+        title: `Certificado ${authorized ? 'autorizado' : 'desautorizado'}`,
+        description: `Para ${registration.name}`,
+        className: authorized ? "bg-green-50 border-green-200" : ""
+      });
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Erro ao atualizar autorização",
+        description: "Por favor, tente novamente.",
+      });
+    }
+  };
+  
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+  
+  const handleSelectChange = (field, value) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+  
+  const generateAccessCode = () => {
+    return Math.random().toString(36).substring(2, 8).toUpperCase();
+  };
+  
+  const handleManualRegistration = async (e) => {
+    e.preventDefault();
+    
+    if (!formData.name || !formData.email || !formData.phone || !formData.institution) {
+      toast({
+        variant: "destructive",
+        title: "Dados incompletos",
+        description: "Por favor, preencha todos os campos obrigatórios.",
+      });
+      return;
+    }
+    
+    try {
+      const accessCode = generateAccessCode();
+      await Registration.create({
+        ...formData,
+        access_code: accessCode,
+        status: "confirmed"
+      });
+      
+      toast({
+        title: "Inscrição realizada com sucesso",
+        description: `Código de acesso: ${accessCode}`,
+        className: "bg-green-50 border-green-200"
+      });
+      
+      setFormData({
+        name: "",
+        email: "",
+        phone: "",
+        institution: "",
+        type: "delegado",
+        representation: "", // reset representation field
+      });
+      
+      loadRegistrations();
+      setActiveTab("list");
+      
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Erro ao realizar inscrição",
+        description: "Por favor, tente novamente.",
+      });
+    }
+  };
+  
+  const handleLogout = async () => {
+    try {
+      localStorage.removeItem('adminAuth');
+      window.location.href = createPageUrl("Register");
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Erro ao sair",
+        description: "Por favor, tente novamente.",
+      });
+    }
+  };
+  
+  const sendConfirmationEmail = async (registration) => {
+    try {
+      const emailTemplate = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
+        <div style="text-align: center; margin-bottom: 20px;">
+          <img src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/67e1b726844f3e4f39565fa6/5b880305c_Logo.jpg" style="max-width: 200px;">
+        </div>
+        
+        <h2 style="color: #00a0df; text-align: center;">Confirmação de Inscrição</h2>
+        
+        <p>Olá <strong>${registration.name}</strong>,</p>
+        
+        <p>Sua inscrição para a <strong>I Conferência Municipal de Saúde do Trabalhador e da Trabalhadora</strong> foi confirmada com sucesso!</p>
+        
+        <div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;">
+          <p><strong>Seus dados:</strong></p>
+          <ul style="list-style-type: none; padding-left: 10px;">
+            <li>Nome: ${registration.name}</li>
+            <li>Email: ${registration.email}</li>
+            <li>Telefone: ${registration.phone}</li>
+            <li>Instituição: ${registration.institution}</li>
+            <li>Tipo: ${registration.type === 'delegado' ? 'Delegado' : registration.type === 'observador' ? 'Observador' : 'Convidado'}</li>
+          </ul>
+        </div>
+        
+        <p>Guarde seu código de acesso para obter seu certificado após o evento:</p>
+        
+        <div style="text-align: center; margin: 20px 0;">
+          <div style="background-color: #00a0df; color: white; font-size: 20px; padding: 10px; border-radius: 5px; font-family: monospace; letter-spacing: 3px;">
+            ${registration.access_code}
+          </div>
+        </div>
+        
+        <div style="border-top: 1px solid #ddd; padding-top: 20px; margin-top: 20px; font-size: 12px; color: #666; text-align: center;">
+          <p>Esta é uma mensagem automática. Por favor, não responda a este email.</p>
+          <img src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/cf4b5f_Designsemnome3.png" style="max-width: 150px; margin-top: 10px;">
+        </div>
+      </div>
+      `;
+
+      await SendEmail({
+        to: registration.email,
+        subject: "Confirmação de Inscrição - I Conferência Municipal de Saúde",
+        body: emailTemplate,
+        from_name: "Conferência Municipal de Saúde"
+      });
+      
+      toast({
+        title: "Email enviado com sucesso",
+        description: `Para ${registration.email}`,
+        className: "bg-green-50 border-green-200"
+      });
+    } catch (error) {
+      console.error(error);
+      toast({
+        variant: "destructive",
+        title: "Erro ao enviar email",
+        description: "Não foi possível enviar o email de confirmação."
+      });
+    }
+  };
+
+  const filteredRegistrations = registrations.filter(reg => {
+    const matchesSearch = 
+      reg.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      reg.institution.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      reg.email.toLowerCase().includes(searchTerm.toLowerCase());
+      
+    const matchesStatus = statusFilter === "all" || 
+      (statusFilter === "authorized" && reg.certificate_authorized) ||
+      (statusFilter === "pending" && !reg.certificate_authorized);
+      
+    const matchesType = typeFilter === "all" || reg.type === typeFilter;
+    
+    return matchesSearch && matchesStatus && matchesType;
+  });
+
+  const downloadPDF = () => {
+    const pdfContent = document.createElement('div');
+    pdfContent.id = 'pdf-content';
+    pdfContent.style.padding = '40px';
+    pdfContent.style.fontFamily = 'Arial, sans-serif';
+    
+    const header = document.createElement('div');
+    header.innerHTML = `
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
+        <img src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/67e1b726844f3e4f39565fa6/5b880305c_Logo.jpg" 
+             style="height: 100px; object-fit: contain;">
+        <img src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/cf4b5f_Designsemnome3.png" 
+             style="height: 80px; object-fit: contain;">
+      </div>
+      <div style="text-align: center; margin-bottom: 30px;">
+        <h2 style="color: #00a0df; margin: 0; font-size: 24px;">Lista de Inscritos</h2>
+        <h3 style="color: #666; margin: 10px 0; font-size: 18px;">I Conferência Municipal de Saúde<br/>do Trabalhador e da Trabalhadora</h3>
+      </div>
+      <div style="display: flex; justify-content: space-between; margin-bottom: 20px; color: #666; font-size: 14px;">
+        <div>Data: ${new Date().toLocaleDateString('pt-BR')}</div>
+        <div>Total de inscritos: ${filteredRegistrations.length}</div>
+      </div>
+    `;
+    pdfContent.appendChild(header);
+    
+    const table = document.createElement('table');
+    table.style.width = '100%';
+    table.style.borderCollapse = 'collapse';
+    table.style.marginTop = '20px';
+    table.style.fontSize = '12px';
+    
+    const headerRow = document.createElement('tr');
+    ['Nome', 'Email', 'Telefone', 'Instituição', 'Tipo', 'Representação', 'Código', 'Status'].forEach(text => {
+      const th = document.createElement('th');
+      th.textContent = text;
+      th.style.backgroundColor = '#00a0df';
+      th.style.color = 'white';
+      th.style.padding = '12px 8px';
+      th.style.border = '1px solid #ddd';
+      th.style.textAlign = 'left';
+      headerRow.appendChild(th);
+    });
+    table.appendChild(headerRow);
+    
+    let currentType = '';
+    filteredRegistrations.forEach((reg, index) => {
+      if (reg.type !== currentType) {
+        currentType = reg.type;
+        const sectionRow = document.createElement('tr');
+        const sectionCell = document.createElement('td');
+        sectionCell.colSpan = 8;
+        sectionCell.style.backgroundColor = '#f8f9fa';
+        sectionCell.style.padding = '10px';
+        sectionCell.style.fontWeight = 'bold';
+        sectionCell.style.color = '#00a0df';
+        sectionCell.textContent = reg.type === 'delegado' ? 'Delegados' : 
+                                reg.type === 'observador' ? 'Observadores' : 'Convidados';
+        sectionRow.appendChild(sectionCell);
+        table.appendChild(sectionRow);
+      }
+
+      const row = document.createElement('tr');
+      row.style.backgroundColor = index % 2 === 0 ? '#ffffff' : '#f8f9fa';
+      
+      [
+        reg.name,
+        reg.email,
+        reg.phone,
+        reg.institution,
+        reg.type === 'delegado' ? 'Delegado' : reg.type === 'observador' ? 'Observador' : 'Convidado',
+        reg.type === 'delegado' ? (
+          reg.representation === 'usuario' ? 'Usuário' :
+          reg.representation === 'gestor' ? 'Gestor/Prestador' :
+          reg.representation === 'trabalhador' ? 'Trabalhador' : ''
+        ) : '',
+        reg.access_code,
+        reg.certificate_authorized ? 'Certificado Autorizado' : 'Pendente'
+      ].forEach((text, cellIndex) => {
+        const td = document.createElement('td');
+        td.textContent = text;
+        td.style.padding = '12px 8px';
+        td.style.border = '1px solid #ddd';
+        
+        if (cellIndex === 6) {
+          td.style.color = reg.certificate_authorized ? '#16a34a' : '#ca8a04';
+          td.style.fontWeight = '500';
+        }
+        
+        if (cellIndex === 5) {
+          td.style.fontFamily = 'monospace';
+          td.style.backgroundColor = '#f0f9ff';
+        }
+        
+        row.appendChild(td);
+      });
+      table.appendChild(row);
+    });
+    
+    pdfContent.appendChild(table);
+    
+    const footer = document.createElement('div');
+    footer.style.marginTop = '30px';
+    footer.style.borderTop = '1px solid #ddd';
+    footer.style.paddingTop = '20px';
+    footer.style.display = 'flex';
+    footer.style.justifyContent = 'space-between';
+    footer.style.color = '#666';
+    footer.style.fontSize = '12px';
+    footer.innerHTML = `
+      <div>
+        Relatório gerado em: ${new Date().toLocaleDateString('pt-BR')} às ${new Date().toLocaleTimeString('pt-BR')}
+      </div>
+      <div>
+        Página 1
+      </div>
+    `;
+    pdfContent.appendChild(footer);
+    
+    document.body.appendChild(pdfContent);
+    window.print();
+    document.body.removeChild(pdfContent);
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-lg p-6">
+        <div>
+          <h1 className="text-2xl font-bold">Área Administrativa</h1>
+          <p className="text-blue-100">Gerencie as inscrições e certificados da conferência</p>
+        </div>
+        <Button 
+          variant="outline" 
+          onClick={handleLogout}
+          className="bg-white text-blue-600 hover:bg-blue-50"
+        >
+          <LogOut className="w-4 h-4 mr-2" />
+          Sair
+        </Button>
+      </div>
+      
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card className="bg-gradient-to-br from-blue-50 to-white border-blue-200">
+          <CardContent className="p-6">
+            <Users className="w-8 h-8 text-blue-500 mb-2" />
+            <p className="text-sm text-blue-500 font-medium">Total de Inscritos</p>
+            <h3 className="text-3xl font-bold text-blue-700">{stats.total}</h3>
+          </CardContent>
+        </Card>
+        
+        <Card className="bg-gradient-to-br from-amber-50 to-white border-amber-200">
+          <CardContent className="p-6">
+            <UserPlus className="w-8 h-8 text-amber-500 mb-2" />
+            <p className="text-sm text-amber-500 font-medium">Delegados</p>
+            <h3 className="text-3xl font-bold text-amber-700">{stats.delegados}</h3>
+          </CardContent>
+        </Card>
+        
+        <Card className="bg-gradient-to-br from-indigo-50 to-white border-indigo-200">
+          <CardContent className="p-6">
+            <Users className="w-8 h-8 text-indigo-500 mb-2" />
+            <p className="text-sm text-indigo-500 font-medium">Observadores</p>
+            <h3 className="text-3xl font-bold text-indigo-700">{stats.observadores}</h3>
+          </CardContent>
+        </Card>
+        
+        <Card className="bg-gradient-to-br from-green-50 to-white border-green-200">
+          <CardContent className="p-6">
+            <FileText className="w-8 h-8 text-green-500 mb-2" />
+            <p className="text-sm text-green-500 font-medium">Certificados</p>
+            <h3 className="text-3xl font-bold text-green-700">{stats.certificados}</h3>
+          </CardContent>
+        </Card>
+      </div>
+      
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="bg-white border">
+          <TabsTrigger value="list" className="data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700">
+            <Users className="w-4 h-4 mr-2" />
+            Inscritos
+          </TabsTrigger>
+          <TabsTrigger value="register" className="data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700">
+            <UserPlus className="w-4 h-4 mr-2" />
+            Nova Inscrição
+          </TabsTrigger>
+          <TabsTrigger value="certificate" className="data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700">
+            <Image className="w-4 h-4 mr-2" />
+            Configurar Certificado
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="list">
+          <Card className="border-blue-200">
+            <CardHeader className="bg-gradient-to-r from-blue-50 to-white">
+              <CardTitle className="text-xl flex justify-between items-center">
+                <span className="text-blue-700">Lista de Inscritos</span>
+                <Button
+                  onClick={downloadPDF}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Baixar PDF
+                </Button>
+              </CardTitle>
+              <CardDescription>
+                I Conferência Municipal de Saúde do Trabalhador e da Trabalhadora
+              </CardDescription>
+              
+              <div className="mt-4 flex flex-col sm:flex-row gap-4">
+                <div className="relative flex-grow">
+                  <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                  <Input
+                    placeholder="Buscar por nome, instituição ou email..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+                
+                <div className="flex gap-2">
+                  <Select value={typeFilter} onValueChange={setTypeFilter}>
+                    <SelectTrigger className="w-[130px]">
+                      <Filter className="w-4 h-4 mr-2 text-blue-500" />
+                      <SelectValue placeholder="Tipo" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      <SelectItem value="delegado">Delegados</SelectItem>
+                      <SelectItem value="observador">Observadores</SelectItem>
+                      <SelectItem value="convidado">Convidados</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger className="w-[180px]">
+                      <Filter className="w-4 h-4 mr-2 text-blue-500" />
+                      <SelectValue placeholder="Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      <SelectItem value="authorized">Certificado Autorizado</SelectItem>
+                      <SelectItem value="pending">Certificado Pendente</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  
+                  <Button variant="outline" size="icon" onClick={loadRegistrations}>
+                    <RefreshCw className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            
+            <CardContent className="p-0">
+              {isLoading ? (
+                <div className="flex justify-center items-center h-64">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader className="bg-gray-50">
+                      <TableRow>
+                        <TableHead>Nome</TableHead>
+                        <TableHead>Email</TableHead>
+                        <TableHead>Telefone</TableHead>
+                        <TableHead>Instituição</TableHead>
+                        <TableHead>Tipo</TableHead>
+                        <TableHead>Representação</TableHead>
+                        <TableHead>Código</TableHead>
+                        <TableHead>Ações</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredRegistrations.length > 0 ? (
+                        filteredRegistrations.map((reg) => (
+                          <TableRow key={reg.id} className="hover:bg-blue-50">
+                            <TableCell className="font-medium">{reg.name}</TableCell>
+                            <TableCell>{reg.email}</TableCell>
+                            <TableCell>{reg.phone}</TableCell>
+                            <TableCell>{reg.institution}</TableCell>
+                            <TableCell>
+                              <Badge className={reg.type === 'delegado' 
+                                ? "bg-amber-100 text-amber-800 hover:bg-amber-200" 
+                                : reg.type === 'observador'
+                                ? "bg-indigo-100 text-indigo-800 hover:bg-indigo-200"
+                                : "bg-green-100 text-green-800 hover:bg-green-200"}>
+                                {reg.type === 'delegado' ? 'Delegado' : 
+                                 reg.type === 'observador' ? 'Observador' : 'Convidado'}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              {reg.type === 'delegado' && (
+                                <Badge variant="outline">
+                                  {reg.representation === 'usuario' ? 'Usuário' :
+                                   reg.representation === 'gestor' ? 'Gestor/Prestador' :
+                                   reg.representation === 'trabalhador' ? 'Trabalhador' : ''}
+                                </Badge>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <code className="bg-gray-100 px-2 py-1 rounded text-sm">
+                                {reg.access_code}
+                              </code>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleCertificateAuthorization(reg, !reg.certificate_authorized)}
+                                  title={reg.certificate_authorized ? "Desautorizar certificado" : "Autorizar certificado"}
+                                >
+                                  {reg.certificate_authorized ? (
+                                    <CheckCircle2 className="w-4 h-4 text-green-500" />
+                                  ) : (
+                                    <XCircle className="w-4 h-4 text-gray-400" />
+                                  )}
+                                </Button>
+                                
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => sendConfirmationEmail(reg)}
+                                  title="Enviar email de confirmação"
+                                >
+                                  <Mail className="w-4 h-4 text-blue-500" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      ) : (
+                        <TableRow>
+                          <TableCell colSpan={8} className="text-center py-8 text-gray-500">
+                            Nenhuma inscrição encontrada com os filtros atuais
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+            
+            <CardFooter className="p-4 border-t">
+              <div className="text-sm text-gray-500">
+                {filteredRegistrations.length} {filteredRegistrations.length === 1 ? 'registro' : 'registros'} {filteredRegistrations.length !== registrations.length ? `(de ${registrations.length} total)` : ''}
+              </div>
+            </CardFooter>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="register">
+          <Card className="border-amber-200">
+            <CardHeader className="bg-gradient-to-r from-amber-50 to-white">
+              <CardTitle className="text-xl flex items-center gap-2">
+                <UserPlus className="w-5 h-5 text-amber-600" />
+                <span className="text-amber-700">Nova Inscrição</span>
+              </CardTitle>
+              <CardDescription>
+                Cadastre um novo participante manualmente
+              </CardDescription>
+            </CardHeader>
+            
+            <CardContent>
+              <form onSubmit={handleManualRegistration} className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Nome Completo</Label>
+                    <Input
+                      id="name"
+                      name="name"
+                      value={formData.name}
+                      onChange={handleInputChange}
+                      placeholder="Nome completo"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email</Label>
+                    <Input
+                      id="email"
+                      name="email"
+                      type="email"
+                      value={formData.email}
+                      onChange={handleInputChange}
+                      placeholder="email@exemplo.com"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="phone">Telefone</Label>
+                    <Input
+                      id="phone"
+                      name="phone"
+                      value={formData.phone}
+                      onChange={handleInputChange}
+                      placeholder="(00) 00000-0000"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="institution">Instituição</Label>
+                    <Input
+                      id="institution"
+                      name="institution"
+                      value={formData.institution}
+                      onChange={handleInputChange}
+                      placeholder="Nome da instituição"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="type">Tipo de Inscrição</Label>
+                    <Select 
+                      value={formData.type} 
+                      onValueChange={(value) => handleSelectChange("type", value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione o tipo" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="delegado">Delegado</SelectItem>
+                        <SelectItem value="observador">Observador</SelectItem>
+                        <SelectItem value="convidado">Convidado</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {formData.type === 'delegado' && (
+                    <div className="space-y-2">
+                      <Label htmlFor="representation">Representação</Label>
+                      <Select 
+                        value={formData.representation}
+                        onValueChange={(value) => handleSelectChange("representation", value)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione a representação" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="usuario">Usuário</SelectItem>
+                          <SelectItem value="gestor">Gestor/Prestador</SelectItem>
+                          <SelectItem value="trabalhador">Trabalhador</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                </div>
+                
+                <Separator className="my-4" />
+                
+                <div className="flex justify-end">
+                  <Button type="submit" className="bg-amber-500 hover:bg-amber-600">
+                    <UserPlus className="w-4 h-4 mr-2" />
+                    Cadastrar
+                  </Button>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="certificate">
+          <CertificateConfig />
+        </TabsContent>
+      </Tabs>
+
+      <style jsx global>{`
+        @media print {
+          body * {
+            visibility: hidden;
+          }
+          #pdf-content, #pdf-content * {
+            visibility: visible;
+          }
+          #pdf-content {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+          }
+          @page {
+            size: landscape;
+            margin: 15mm;
+          }
+        }
+      `}</style>
+    </div>
+  );
+}
