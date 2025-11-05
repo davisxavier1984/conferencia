@@ -1,0 +1,575 @@
+
+import React, { useState, useEffect } from "react";
+import { Registration } from "@/entities/Registration";
+import { SendEmail } from "@/integrations/Core";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import { useToast } from "@/components/ui/use-toast";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Check, Download, Search, CalendarCheck, UserPlus, FileText, CheckCircle2 } from "lucide-react";
+import { CertificateTemplate } from "@/entities/CertificateTemplate";
+
+export default function Register() {
+  const { toast } = useToast();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [confirmationData, setConfirmationData] = useState(null);
+  const [activeTab, setActiveTab] = useState("register");
+  const [searchCode, setSearchCode] = useState("");
+  const [searchResult, setSearchResult] = useState(null);
+  const [searching, setSearching] = useState(false);
+  const [certificateTemplate, setCertificateTemplate] = useState(null);
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    institution: "",
+    type: "",
+    representation: ""
+  });
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const generateAccessCode = () => {
+    return Math.random().toString(36).substring(2, 8).toUpperCase();
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    if (!formData.name || !formData.email || !formData.phone || !formData.institution || !formData.type || (formData.type === "delegado" && !formData.representation)) {
+      toast({
+        variant: "destructive",
+        title: "Dados incompletos",
+        description: "Por favor, preencha todos os campos obrigatórios.",
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const accessCode = generateAccessCode();
+      const registration = await Registration.create({
+        ...formData,
+        access_code: accessCode,
+        status: "confirmed"
+      });
+
+      setConfirmationData({ ...registration, access_code: accessCode });
+      setShowConfirmation(true);
+
+      await sendConfirmationEmail({ ...registration, access_code: accessCode });
+
+      setFormData({
+        name: "",
+        email: "",
+        phone: "",
+        institution: "",
+        type: "",
+        representation: ""
+      });
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Erro ao realizar inscrição",
+        description: "Por favor, tente novamente.",
+      });
+    }
+
+    setIsSubmitting(false);
+  };
+
+  const sendConfirmationEmail = async (registration) => {
+    try {
+      const emailTemplate = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
+        <div style="text-align: center; margin-bottom: 20px;">
+          <img src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/67e1b726844f3e4f39565fa6/b60e06d71_Logo.jpg" style="max-width: 200px;">
+        </div>
+
+        <h2 style="color: #00a0df; text-align: center;">Confirmação de Inscrição</h2>
+
+        <p>Olá <strong>${registration.name}</strong>,</p>
+
+        <p>Sua inscrição para a <strong>I Conferência Municipal de Saúde do Trabalhador e da Trabalhadora</strong> foi confirmada com sucesso!</p>
+
+        <div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;">
+          <p><strong>Seus dados:</strong></p>
+          <ul style="list-style-type: none; padding-left: 10px;">
+            <li>Nome: ${registration.name}</li>
+            <li>Email: ${registration.email}</li>
+            <li>Telefone: ${registration.phone}</li>
+            <li>Instituição: ${registration.institution}</li>
+            <li>Tipo: ${registration.type === 'delegado' ? 'Delegado' : registration.type === 'observador' ? 'Observador' : 'Convidado'}</li>
+            ${registration.type === 'delegado' ? `<li>Representação: ${registration.representation === 'usuario' ? 'Usuário' : registration.representation === 'gestor' ? 'Gestor/Prestador' : 'Trabalhador'}</li>` : ''}
+          </ul>
+        </div>
+
+        <p>Guarde seu código de acesso para obter seu certificado após o evento:</p>
+
+        <div style="text-align: center; margin: 20px 0;">
+          <div style="background-color: #00a0df; color: white; font-size: 20px; padding: 10px; border-radius: 5px; font-family: monospace; letter-spacing: 3px;">
+            ${registration.access_code}
+          </div>
+        </div>
+
+        <div style="border-top: 1px solid #ddd; padding-top: 20px; margin-top: 20px; font-size: 12px; color: #666; text-align: center;">
+          <p>Esta é uma mensagem automática. Por favor, não responda a este email.</p>
+          <img src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/cf4b5f_Designsemnome3.png" style="max-width: 150px; margin-top: 10px;">
+        </div>
+      </div>
+      `;
+
+      await SendEmail({
+        to: registration.email,
+        subject: "Confirmação de Inscrição - I Conferência Municipal de Saúde",
+        body: emailTemplate,
+        from_name: "Conferência Municipal de Saúde"
+      });
+    } catch (error) {
+      console.error("Erro ao enviar email:", error);
+    }
+  };
+
+  const searchCertificate = async () => {
+    if (!searchCode) return;
+
+    setSearching(true);
+    try {
+      const results = await Registration.filter({ access_code: searchCode });
+      if (results.length > 0) {
+        setSearchResult(results[0]);
+        if (results[0].certificate_authorized) {
+          await loadCertificateTemplate();
+        }
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Código não encontrado",
+          description: "Verifique o código e tente novamente.",
+        });
+      }
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Erro ao buscar certificado",
+        description: "Por favor, tente novamente.",
+      });
+    }
+    setSearching(false);
+  };
+
+  useEffect(() => {
+    if (searchResult && searchResult.certificate_authorized) {
+      loadCertificateTemplate();
+    }
+  }, [searchResult]);
+
+  const loadCertificateTemplate = async () => {
+    try {
+      const templates = await CertificateTemplate.list();
+      const activeTemplate = templates.find(t => t.is_active);
+      if (activeTemplate) {
+        setCertificateTemplate(activeTemplate);
+      }
+    } catch (error) {
+      console.error("Erro ao carregar template do certificado:", error);
+    }
+  };
+
+  const handlePrintCertificate = () => {
+    const certificateContent = document.getElementById("certificate-content");
+    if (certificateContent) {
+      certificateContent.classList.remove("hidden");
+      certificateContent.classList.add("block");
+
+      setTimeout(() => {
+        window.print();
+
+        certificateContent.classList.remove("block");
+        certificateContent.classList.add("hidden");
+      }, 100);
+    }
+  };
+
+  return (
+    <div className="max-w-xl mx-auto">
+      <div className="text-center mb-8">
+        <img
+          src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/67e1b726844f3e4f39565fa6/5b880305c_Logo.jpg"
+          alt="Conferência Logo"
+          className="mb-4 mx-auto h-32 object-contain"
+        />
+        <h1 className="text-2xl md:text-3xl font-bold text-blue-600 mb-2">
+          I Conferência Municipal de Saúde
+        </h1>
+      </div>
+
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+        <TabsList className="grid w-full grid-cols-2 bg-blue-50">
+          <TabsTrigger value="register" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white">
+            <UserPlus className="w-4 h-4 mr-2" />
+            Inscrição
+          </TabsTrigger>
+          <TabsTrigger value="certificate" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white">
+            <FileText className="w-4 h-4 mr-2" />
+            Certificado
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="register">
+          <Card className="border-blue-200 shadow-lg">
+            <CardHeader className="bg-gradient-to-r from-blue-50 to-white">
+              <CardTitle className="text-2xl text-blue-700 flex items-center gap-2">
+                <CalendarCheck className="h-6 w-6 text-blue-500" />
+                Formulário de Inscrição
+              </CardTitle>
+              <CardDescription>
+                Preencha os dados abaixo para se inscrever
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="name">Nome Completo</Label>
+                  <Input
+                    id="name"
+                    name="name"
+                    value={formData.name}
+                    onChange={handleInputChange}
+                    placeholder="Digite seu nome completo"
+                    className="border-blue-200 focus:border-blue-400"
+                  />
+                  <p className="text-sm text-gray-500">Por favor, use seu nome completo, sem abreviações.</p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    name="email"
+                    type="email"
+                    value={formData.email}
+                    onChange={handleInputChange}
+                    placeholder="seu.email@exemplo.com"
+                    className="border-blue-200 focus:border-blue-400"
+                  />
+                  <p className="text-sm text-gray-500">Informe seu melhor e-mail para contato e recebimento de informações sobre a conferência.</p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="phone">Telefone</Label>
+                  <Input
+                    id="phone"
+                    name="phone"
+                    value={formData.phone}
+                    onChange={handleInputChange}
+                    placeholder="(00) 00000-0000"
+                    className="border-blue-200 focus:border-blue-400"
+                  />
+                  <p className="text-sm text-gray-500">Digite seu telefone com DDD. Exemplo: (81) 98765-4321.</p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="institution">Instituição</Label>
+                  <Input
+                    id="institution"
+                    name="institution"
+                    value={formData.institution}
+                    onChange={handleInputChange}
+                    placeholder="Nome da Instituição que representa"
+                    className="border-blue-200 focus:border-blue-400"
+                  />
+                  <p className="text-sm text-gray-500">Informe a entidade, sindicato, associação, empresa ou órgão público que você representa. Se participação individual ou não representa nenhuma, pode deixar em branco. Se representa mais de uma, escolha a principal para esta conferência.</p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="type">Tipo de Inscrição</Label>
+                  <Select
+                    value={formData.type}
+                    onValueChange={(value) => setFormData({...formData, type: value, representation: ""})}
+                  >
+                    <SelectTrigger className="w-full border-blue-200 focus:border-blue-400">
+                      <SelectValue placeholder="Selecione o tipo de inscrição" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="delegado">Delegado (Direito a Voz e Voto)</SelectItem>
+                      <SelectItem value="observador">Observador (Direito a Voz)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-sm text-gray-500">Escolha como deseja participar *nesta Conferência Municipal*. Delegados(as) participam dos debates, votam nas propostas e podem se candidatar/votar na eleição para a etapa Macrorregional. Observadores apenas acompanham os trabalhos, sem direito a voz ou voto.</p>
+                </div>
+
+                {formData.type === "delegado" && (
+                  <div className="space-y-2">
+                    <Label htmlFor="representation">Segmento que Representa</Label>
+                    <Select
+                      value={formData.representation}
+                      onValueChange={(value) => setFormData({...formData, representation: value})}
+                    >
+                      <SelectTrigger className="w-full border-blue-200 focus:border-blue-400">
+                        <SelectValue placeholder="Selecione o segmento que representa" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="usuario">Usuário</SelectItem>
+                        <SelectItem value="gestor">Gestor/Prestador</SelectItem>
+                        <SelectItem value="trabalhador">Trabalhador</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-sm text-gray-500">Selecione o segmento que você representará. Usuário: Cidadão ou membro de entidade/movimento de usuários. Trabalhador: Profissional da saúde ou membro de entidade/sindicato de trabalhadores da saúde (não gestor). Gestor/Prestador: Representante da gestão pública ou de entidade que presta serviços ao SUS.</p>
+                  </div>
+                )}
+
+                <Button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="w-full bg-blue-600 hover:bg-blue-700 mt-4"
+                >
+                  {isSubmitting ? (
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white" />
+                  ) : (
+                    "Realizar Inscrição"
+                  )}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="certificate">
+          <Card className="border-blue-200 shadow-lg">
+            <CardHeader className="bg-gradient-to-r from-blue-50 to-white">
+              <CardTitle className="text-2xl text-blue-700 flex items-center gap-2">
+                <FileText className="h-6 w-6 text-blue-500" />
+                Certificado
+              </CardTitle>
+              <CardDescription>
+                Digite o código recebido por email para acessar seu certificado
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-6">
+                <div className="flex space-x-2">
+                  <Input
+                    placeholder="Digite seu código de acesso"
+                    value={searchCode}
+                    onChange={(e) => setSearchCode(e.target.value)}
+                    className="flex-1 border-blue-200"
+                  />
+                  <Button
+                    onClick={searchCertificate}
+                    disabled={searching || !searchCode}
+                    className="bg-blue-600 hover:bg-blue-700"
+                  >
+                    {searching ? (
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white" />
+                    ) : (
+                      <>
+                        <Search className="w-4 h-4 mr-2" />
+                        Buscar
+                      </>
+                    )}
+                  </Button>
+                </div>
+
+                {searchResult && (
+                  <div className="bg-white border border-blue-200 rounded-lg p-4">
+                    <p className="font-medium mb-2">Resultado da busca:</p>
+                    <p><strong>Nome:</strong> {searchResult.name}</p>
+                    <p><strong>Instituição:</strong> {searchResult.institution}</p>
+                    <p><strong>Tipo:</strong> {searchResult.type === 'delegado' ? 'Delegado' : searchResult.type === 'observador' ? 'Observador' : 'Convidado'}</p>
+
+                    {searchResult.certificate_authorized ? (
+                      <div className="mt-4">
+                        <p className="text-green-600 font-medium flex items-center">
+                          <CheckCircle2 className="w-5 h-5 mr-2" />
+                          Certificado disponível
+                        </p>
+                        <Button
+                          onClick={handlePrintCertificate}
+                          className="w-full mt-4 bg-green-600 hover:bg-green-700"
+                        >
+                          <Download className="w-4 h-4 mr-2" />
+                          Baixar Certificado
+                        </Button>
+                      </div>
+                    ) : (
+                      <p className="text-amber-600 mt-4 text-center">
+                        Seu certificado ainda não está disponível.
+                        <br />
+                        Por favor, aguarde a liberação após o evento.
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+
+      <Dialog open={showConfirmation} onOpenChange={setShowConfirmation}>
+        <DialogContent className="sm:max-w-md bg-gradient-to-b from-blue-50 to-white">
+          <DialogHeader>
+            <DialogTitle className="text-center text-blue-700 text-xl">
+              <CheckCircle2 className="w-6 h-6 text-green-500 mx-auto mb-2" />
+              Inscrição Confirmada!
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-center">
+              Sua inscrição foi realizada com sucesso!
+            </p>
+
+            <div className="bg-white border border-blue-200 p-4 rounded-lg">
+              <p className="text-sm text-blue-600 mb-2">Seus dados:</p>
+              <p><strong>Nome:</strong> {confirmationData?.name}</p>
+              <p><strong>Email:</strong> {confirmationData?.email}</p>
+              <p><strong>Tipo:</strong> {confirmationData?.type === 'delegado' ? 'Delegado' : confirmationData?.type === 'observador' ? 'Observador' : 'Convidado'}</p>
+              {confirmationData?.type === 'delegado' && <p><strong>Representação:</strong> {confirmationData?.representation === 'usuario' ? 'Usuário' : confirmationData?.representation === 'gestor' ? 'Gestor/Prestador' : 'Trabalhador'}</p>}
+            </div>
+
+            <p className="text-center text-sm">
+              Guarde seu código de acesso para obter seu certificado após o evento:
+            </p>
+
+            <div className="bg-blue-600 p-4 rounded-lg text-center">
+              <span className="text-2xl font-mono font-bold text-white tracking-widest">
+                {confirmationData?.access_code}
+              </span>
+            </div>
+
+            <p className="text-center text-sm text-gray-500">
+              Você também receberá um email com a confirmação da sua inscrição.
+            </p>
+
+            <Button
+              onClick={() => setShowConfirmation(false)}
+              className="w-full bg-blue-600 hover:bg-blue-700"
+            >
+              <Check className="w-4 h-4 mr-2" />
+              Entendi
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {searchResult?.certificate_authorized && (
+        <div id="certificate-content" className="hidden fixed inset-0 bg-white z-50">
+          {certificateTemplate ? (
+            <div className="relative certificate-container" style={{ width: "100%", height: "100vh", overflow: "hidden" }}>
+              <img
+                src={certificateTemplate.background_url}
+                alt="Certificado"
+                className="absolute inset-0 w-full h-full object-contain"
+              />
+              <div
+                className="absolute text-center"
+                style={{
+                  left: `${certificateTemplate.name_position.x}%`,
+                  top: `${certificateTemplate.name_position.y}%`,
+                  fontSize: `${certificateTemplate.name_position.fontSize}px`,
+                  transform: 'translate(-50%, -50%)',
+                  width: "80%",
+                  color: "#000"
+                }}
+              >
+                {searchResult.name}
+              </div>
+              <div
+                className="absolute text-center"
+                style={{
+                  left: `${certificateTemplate.type_position?.x || 50}%`,
+                  top: `${certificateTemplate.type_position?.y || 60}%`,
+                  fontSize: `${certificateTemplate.type_position?.fontSize || 18}px`,
+                  transform: 'translate(-50%, -50%)',
+                  width: "80%",
+                  color: "#000"
+                }}
+              >
+                {searchResult.type === 'delegado' ? 'Delegado' :
+                 searchResult.type === 'observador' ? 'Observador' : 'Convidado'}
+              </div>
+
+              <div className="absolute bottom-4 left-8 text-sm text-gray-500">
+                Código de Autenticação: {searchResult.access_code}
+              </div>
+            </div>
+          ) : (
+            <div className="p-8 border-8 border-double border-blue-300 text-center space-y-6" style={{ height: "100vh", display: "flex", flexDirection: "column", justifyContent: "center" }}>
+              <img
+                src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/67e1b726844f3e4f39565fa6/5b880305c_Logo.jpg"
+                alt="Logo"
+                className="h-36 mx-auto"
+              />
+              <h1 className="text-3xl font-bold text-blue-700">CERTIFICADO</h1>
+              <p className="text-xl">
+                Certificamos que <strong>{searchResult.name}</strong> participou da
+              </p>
+              <p className="text-2xl font-bold text-blue-600">
+                I Conferência Municipal de Saúde do Trabalhador e da Trabalhadora
+              </p>
+              <p className="text-lg">
+                na qualidade de <strong>{searchResult.type === 'delegado' ? 'Delegado' : searchResult.type === 'observador' ? 'Observador' : 'Convidado'}</strong>,
+                representando a instituição <strong>{searchResult.institution}</strong>.
+              </p>
+              <div className="mt-16">
+                <div className="w-64 mx-auto border-t border-gray-400 pt-2">
+                  <p className="text-gray-600">Coordenação do Evento</p>
+                </div>
+              </div>
+
+              <div className="absolute bottom-4 right-8">
+                <img
+                  src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/cf4b5f_Designsemnome3.png"
+                  alt="Prefeitura"
+                  className="h-16"
+                />
+              </div>
+
+              <div className="absolute bottom-4 left-8 text-sm text-gray-500">
+                Código de Autenticação: {searchResult.access_code}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      <style jsx global>{`
+        @media print {
+          body * {
+            visibility: hidden;
+          }
+          #certificate-content, #certificate-content * {
+            visibility: visible !important;
+            display: block !important;
+          }
+          #certificate-content {
+            position: absolute !important;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+          }
+          @page {
+            size: landscape;
+            margin: 0;
+          }
+        }
+      `}</style>
+    </div>
+  );
+}
