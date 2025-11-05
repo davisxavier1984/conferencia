@@ -3,19 +3,20 @@ import { CoreEntity } from '@/integrations/Core';
 export interface RegistrationData {
   id?: string;
   name: string;
+  cpf: string;
   email: string;
   phone: string;
   institution: string;
-  type: 'delegado' | 'observador' | 'convidado';
+  type?: 'delegado' | 'observador' | 'convidado';
   representation?: 'usuario' | 'gestor' | 'trabalhador';
-  access_code?: string;
-  certificate_authorized?: boolean;
+  accessCode?: string;
+  certificateAuthorized?: boolean;
   status?: 'pending' | 'confirmed';
-  created_date?: string;
+  createdAt?: string;
 }
 
 export class Registration extends CoreEntity {
-  static entityName = 'Registration';
+  static entityName = 'registrations';
 
   static async create(data: Partial<RegistrationData>): Promise<RegistrationData> {
     return super.create(data);

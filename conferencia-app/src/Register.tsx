@@ -25,11 +25,10 @@ export default function Register() {
   const [certificateTemplate, setCertificateTemplate] = useState(null);
   const [formData, setFormData] = useState({
     name: "",
+    cpf: "",
     email: "",
     phone: "",
-    institution: "",
-    type: "",
-    representation: ""
+    institution: ""
   });
 
   const handleInputChange = (e) => {
@@ -47,7 +46,7 @@ export default function Register() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!formData.name || !formData.email || !formData.phone || !formData.institution || !formData.type || (formData.type === "delegado" && !formData.representation)) {
+    if (!formData.name || !formData.cpf || !formData.email || !formData.phone || !formData.institution) {
       toast({
         variant: "destructive",
         title: "Dados incompletos",
@@ -62,22 +61,21 @@ export default function Register() {
       const accessCode = generateAccessCode();
       const registration = await Registration.create({
         ...formData,
-        access_code: accessCode,
+        accessCode: accessCode,
         status: "confirmed"
       });
 
-      setConfirmationData({ ...registration, access_code: accessCode });
+      setConfirmationData({ ...registration, accessCode: accessCode });
       setShowConfirmation(true);
 
-      await sendConfirmationEmail({ ...registration, access_code: accessCode });
+      await sendConfirmationEmail({ ...registration, accessCode: accessCode });
 
       setFormData({
         name: "",
+        cpf: "",
         email: "",
         phone: "",
-        institution: "",
-        type: "",
-        representation: ""
+        institution: ""
       });
     } catch (error) {
       toast({
@@ -102,7 +100,7 @@ export default function Register() {
 
         <p>Olá <strong>${registration.name}</strong>,</p>
 
-        <p>Sua inscrição para a <strong>I Conferência Municipal de Saúde do Trabalhador e da Trabalhadora</strong> foi confirmada com sucesso!</p>
+        <p>Sua inscrição para a <strong>10ª Conferência Municipal de Saúde do Trabalhador e da Trabalhadora</strong> foi confirmada com sucesso!</p>
 
         <div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;">
           <p><strong>Seus dados:</strong></p>
@@ -120,7 +118,7 @@ export default function Register() {
 
         <div style="text-align: center; margin: 20px 0;">
           <div style="background-color: #00a0df; color: white; font-size: 20px; padding: 10px; border-radius: 5px; font-family: monospace; letter-spacing: 3px;">
-            ${registration.access_code}
+            ${registration.accessCode}
           </div>
         </div>
 
@@ -133,7 +131,7 @@ export default function Register() {
 
       await SendEmail({
         to: registration.email,
-        subject: "Confirmação de Inscrição - I Conferência Municipal de Saúde",
+        subject: "Confirmação de Inscrição - 10ª Conferência Municipal de Saúde",
         body: emailTemplate,
         from_name: "Conferência Municipal de Saúde"
       });
@@ -147,10 +145,10 @@ export default function Register() {
 
     setSearching(true);
     try {
-      const results = await Registration.filter({ access_code: searchCode });
+      const results = await Registration.filter({ accessCode: searchCode });
       if (results.length > 0) {
         setSearchResult(results[0]);
-        if (results[0].certificate_authorized) {
+        if (results[0].certificateAuthorized) {
           await loadCertificateTemplate();
         }
       } else {
@@ -171,7 +169,7 @@ export default function Register() {
   };
 
   useEffect(() => {
-    if (searchResult && searchResult.certificate_authorized) {
+    if (searchResult && searchResult.certificateAuthorized) {
       loadCertificateTemplate();
     }
   }, [searchResult]);
@@ -212,7 +210,7 @@ export default function Register() {
           className="mb-4 mx-auto h-32 object-contain"
         />
         <h1 className="text-2xl md:text-3xl font-bold text-blue-600 mb-2">
-          I Conferência Municipal de Saúde
+          10ª Conferência Municipal de Saúde
         </h1>
       </div>
 
@@ -255,6 +253,19 @@ export default function Register() {
                 </div>
 
                 <div className="space-y-2">
+                  <Label htmlFor="cpf">CPF</Label>
+                  <Input
+                    id="cpf"
+                    name="cpf"
+                    value={formData.cpf}
+                    onChange={handleInputChange}
+                    placeholder="000.000.000-00"
+                    className="border-blue-200 focus:border-blue-400"
+                  />
+                  <p className="text-sm text-gray-500">Digite seu CPF sem pontos ou traços.</p>
+                </div>
+
+                <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
                   <Input
                     id="email"
@@ -293,43 +304,6 @@ export default function Register() {
                   />
                   <p className="text-sm text-gray-500">Informe a entidade, sindicato, associação, empresa ou órgão público que você representa. Se participação individual ou não representa nenhuma, pode deixar em branco. Se representa mais de uma, escolha a principal para esta conferência.</p>
                 </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="type">Tipo de Inscrição</Label>
-                  <Select
-                    value={formData.type}
-                    onValueChange={(value) => setFormData({...formData, type: value, representation: ""})}
-                  >
-                    <SelectTrigger className="w-full border-blue-200 focus:border-blue-400">
-                      <SelectValue placeholder="Selecione o tipo de inscrição" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="delegado">Delegado (Direito a Voz e Voto)</SelectItem>
-                      <SelectItem value="observador">Observador (Direito a Voz)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <p className="text-sm text-gray-500">Escolha como deseja participar *nesta Conferência Municipal*. Delegados(as) participam dos debates, votam nas propostas e podem se candidatar/votar na eleição para a etapa Macrorregional. Observadores apenas acompanham os trabalhos, sem direito a voz ou voto.</p>
-                </div>
-
-                {formData.type === "delegado" && (
-                  <div className="space-y-2">
-                    <Label htmlFor="representation">Segmento que Representa</Label>
-                    <Select
-                      value={formData.representation}
-                      onValueChange={(value) => setFormData({...formData, representation: value})}
-                    >
-                      <SelectTrigger className="w-full border-blue-200 focus:border-blue-400">
-                        <SelectValue placeholder="Selecione o segmento que representa" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="usuario">Usuário</SelectItem>
-                        <SelectItem value="gestor">Gestor/Prestador</SelectItem>
-                        <SelectItem value="trabalhador">Trabalhador</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <p className="text-sm text-gray-500">Selecione o segmento que você representará. Usuário: Cidadão ou membro de entidade/movimento de usuários. Trabalhador: Profissional da saúde ou membro de entidade/sindicato de trabalhadores da saúde (não gestor). Gestor/Prestador: Representante da gestão pública ou de entidade que presta serviços ao SUS.</p>
-                  </div>
-                )}
 
                 <Button
                   type="submit"
@@ -390,7 +364,7 @@ export default function Register() {
                     <p><strong>Instituição:</strong> {searchResult.institution}</p>
                     <p><strong>Tipo:</strong> {searchResult.type === 'delegado' ? 'Delegado' : searchResult.type === 'observador' ? 'Observador' : 'Convidado'}</p>
 
-                    {searchResult.certificate_authorized ? (
+                    {searchResult.certificateAuthorized ? (
                       <div className="mt-4">
                         <p className="text-green-600 font-medium flex items-center">
                           <CheckCircle2 className="w-5 h-5 mr-2" />
@@ -446,7 +420,7 @@ export default function Register() {
 
             <div className="bg-blue-600 p-4 rounded-lg text-center">
               <span className="text-2xl font-mono font-bold text-white tracking-widest">
-                {confirmationData?.access_code}
+                {confirmationData?.accessCode}
               </span>
             </div>
 
@@ -465,7 +439,7 @@ export default function Register() {
         </DialogContent>
       </Dialog>
 
-      {searchResult?.certificate_authorized && (
+      {searchResult?.certificateAuthorized && (
         <div id="certificate-content" className="hidden fixed inset-0 bg-white z-50">
           {certificateTemplate ? (
             <div className="relative certificate-container" style={{ width: "100%", height: "100vh", overflow: "hidden" }}>
@@ -503,7 +477,7 @@ export default function Register() {
               </div>
 
               <div className="absolute bottom-4 left-8 text-sm text-gray-500">
-                Código de Autenticação: {searchResult.access_code}
+                Código de Autenticação: {searchResult.accessCode}
               </div>
             </div>
           ) : (
@@ -518,7 +492,7 @@ export default function Register() {
                 Certificamos que <strong>{searchResult.name}</strong> participou da
               </p>
               <p className="text-2xl font-bold text-blue-600">
-                I Conferência Municipal de Saúde do Trabalhador e da Trabalhadora
+                10ª Conferência Municipal de Saúde do Trabalhador e da Trabalhadora
               </p>
               <p className="text-lg">
                 na qualidade de <strong>{searchResult.type === 'delegado' ? 'Delegado' : searchResult.type === 'observador' ? 'Observador' : 'Convidado'}</strong>,
@@ -539,14 +513,14 @@ export default function Register() {
               </div>
 
               <div className="absolute bottom-4 left-8 text-sm text-gray-500">
-                Código de Autenticação: {searchResult.access_code}
+                Código de Autenticação: {searchResult.accessCode}
               </div>
             </div>
           )}
         </div>
       )}
 
-      <style jsx global>{`
+      <style>{`
         @media print {
           body * {
             visibility: hidden;

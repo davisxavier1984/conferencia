@@ -1,6 +1,6 @@
-# Backend - Sistema de Conferência Municipal de Saúde
+# Backend - Sistema da 10ª Conferência Municipal de Saúde
 
-Backend Node.js + TypeScript para gerenciamento de inscrições da Conferência Municipal de Saúde.
+Backend Node.js + TypeScript para gerenciamento de inscrições da 10ª Conferência Municipal de Saúde.
 
 ## 🚀 Tecnologias
 
@@ -51,7 +51,7 @@ EMAIL_HOST="smtp.ethereal.email"
 EMAIL_PORT=587
 EMAIL_USER=""
 EMAIL_PASS=""
-EMAIL_FROM="Conferência Municipal de Saúde <noreply@conferencia.com>"
+EMAIL_FROM="10ª Conferência Municipal de Saúde <noreply@conferencia.com>"
 
 # Frontend URL
 FRONTEND_URL="http://localhost:5173"

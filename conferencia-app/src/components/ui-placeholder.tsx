@@ -115,9 +115,11 @@ export const Tabs = ({ value, onValueChange, className, children, ...props }: an
   </div>
 )
 
-export const TabsList = ({ className, children, ...props }: any) => (
+export const TabsList = ({ className, children, activeValue, onValueChange, ...props }: any) => (
   <div className={cn("inline-flex h-10 items-center justify-center rounded-md bg-muted p-1 text-muted-foreground", className)} {...props}>
-    {children}
+    {React.Children.map(children, child =>
+      React.isValidElement(child) ? React.cloneElement(child as React.ReactElement<any>, { activeValue, onValueChange }) : child
+    )}
   </div>
 )
 
@@ -132,7 +134,7 @@ export const TabsTrigger = ({ value, activeValue, onValueChange, className, chil
   </button>
 )
 
-export const TabsContent = ({ value, activeValue, className, children, ...props }: any) => (
+export const TabsContent = ({ value, activeValue, onValueChange, className, children, ...props }: any) => (
   activeValue === value ? (
     <div className={cn("mt-2 ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2", className)} {...props}>
       {children}

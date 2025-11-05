@@ -63,9 +63,7 @@ export default function Admin() {
     name: "",
     email: "",
     phone: "",
-    institution: "",
-    type: "delegado",
-    representation: "", // added representation field
+    institution: ""
   });
 
   const { toast } = useToast();
@@ -93,16 +91,13 @@ export default function Admin() {
       const data = await Registration.list("-created_date");
       setRegistrations(data);
 
-      const delegados = data.filter(r => r.type === "delegado").length;
-      const observadores = data.filter(r => r.type === "observador").length;
-      const convidados = data.filter(r => r.type === "convidado").length;
       const certificados = data.filter(r => r.certificate_authorized).length;
 
       setStats({
         total: data.length,
-        delegados,
-        observadores,
-        convidados,
+        delegados: 0,
+        observadores: 0,
+        convidados: 0,
         certificados
       });
 
@@ -185,9 +180,7 @@ export default function Admin() {
         name: "",
         email: "",
         phone: "",
-        institution: "",
-        type: "delegado",
-        representation: "", // reset representation field
+        institution: ""
       });
 
       loadRegistrations();
@@ -227,7 +220,7 @@ export default function Admin() {
 
         <p>Olá <strong>${registration.name}</strong>,</p>
 
-        <p>Sua inscrição para a <strong>I Conferência Municipal de Saúde do Trabalhador e da Trabalhadora</strong> foi confirmada com sucesso!</p>
+        <p>Sua inscrição para a <strong>10ª Conferência Municipal de Saúde do Trabalhador e da Trabalhadora</strong> foi confirmada com sucesso!</p>
 
         <div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;">
           <p><strong>Seus dados:</strong></p>
@@ -236,7 +229,6 @@ export default function Admin() {
             <li>Email: ${registration.email}</li>
             <li>Telefone: ${registration.phone}</li>
             <li>Instituição: ${registration.institution}</li>
-            <li>Tipo: ${registration.type === 'delegado' ? 'Delegado' : registration.type === 'observador' ? 'Observador' : 'Convidado'}</li>
           </ul>
         </div>
 
@@ -257,7 +249,7 @@ export default function Admin() {
 
       await SendEmail({
         to: registration.email,
-        subject: "Confirmação de Inscrição - I Conferência Municipal de Saúde",
+        subject: "Confirmação de Inscrição - 10ª Conferência Municipal de Saúde",
         body: emailTemplate,
         from_name: "Conferência Municipal de Saúde"
       });
@@ -287,9 +279,7 @@ export default function Admin() {
       (statusFilter === "authorized" && reg.certificate_authorized) ||
       (statusFilter === "pending" && !reg.certificate_authorized);
 
-    const matchesType = typeFilter === "all" || reg.type === typeFilter;
-
-    return matchesSearch && matchesStatus && matchesType;
+    return matchesSearch && matchesStatus;
   });
 
   const downloadPDF = () => {
@@ -308,7 +298,7 @@ export default function Admin() {
       </div>
       <div style="text-align: center; margin-bottom: 30px;">
         <h2 style="color: #00a0df; margin: 0; font-size: 24px;">Lista de Inscritos</h2>
-        <h3 style="color: #666; margin: 10px 0; font-size: 18px;">I Conferência Municipal de Saúde<br/>do Trabalhador e da Trabalhadora</h3>
+        <h3 style="color: #666; margin: 10px 0; font-size: 18px;">10ª Conferência Municipal de Saúde<br/>do Trabalhador e da Trabalhadora</h3>
       </div>
       <div style="display: flex; justify-content: space-between; margin-bottom: 20px; color: #666; font-size: 14px;">
         <div>Data: ${new Date().toLocaleDateString('pt-BR')}</div>
@@ -324,7 +314,7 @@ export default function Admin() {
     table.style.fontSize = '12px';
 
     const headerRow = document.createElement('tr');
-    ['Nome', 'Email', 'Telefone', 'Instituição', 'Tipo', 'Representação', 'Código', 'Status'].forEach(text => {
+    ['Nome', 'Email', 'Telefone', 'Instituição', 'Código', 'Status'].forEach(text => {
       const th = document.createElement('th');
       th.textContent = text;
       th.style.backgroundColor = '#00a0df';
@@ -336,23 +326,7 @@ export default function Admin() {
     });
     table.appendChild(headerRow);
 
-    let currentType = '';
     filteredRegistrations.forEach((reg, index) => {
-      if (reg.type !== currentType) {
-        currentType = reg.type;
-        const sectionRow = document.createElement('tr');
-        const sectionCell = document.createElement('td');
-        sectionCell.colSpan = 8;
-        sectionCell.style.backgroundColor = '#f8f9fa';
-        sectionCell.style.padding = '10px';
-        sectionCell.style.fontWeight = 'bold';
-        sectionCell.style.color = '#00a0df';
-        sectionCell.textContent = reg.type === 'delegado' ? 'Delegados' :
-                                reg.type === 'observador' ? 'Observadores' : 'Convidados';
-        sectionRow.appendChild(sectionCell);
-        table.appendChild(sectionRow);
-      }
-
       const row = document.createElement('tr');
       row.style.backgroundColor = index % 2 === 0 ? '#ffffff' : '#f8f9fa';
 
@@ -361,12 +335,6 @@ export default function Admin() {
         reg.email,
         reg.phone,
         reg.institution,
-        reg.type === 'delegado' ? 'Delegado' : reg.type === 'observador' ? 'Observador' : 'Convidado',
-        reg.type === 'delegado' ? (
-          reg.representation === 'usuario' ? 'Usuário' :
-          reg.representation === 'gestor' ? 'Gestor/Prestador' :
-          reg.representation === 'trabalhador' ? 'Trabalhador' : ''
-        ) : '',
         reg.access_code,
         reg.certificate_authorized ? 'Certificado Autorizado' : 'Pendente'
       ].forEach((text, cellIndex) => {
@@ -375,12 +343,12 @@ export default function Admin() {
         td.style.padding = '12px 8px';
         td.style.border = '1px solid #ddd';
 
-        if (cellIndex === 6) {
+        if (cellIndex === 5) {
           td.style.color = reg.certificate_authorized ? '#16a34a' : '#ca8a04';
           td.style.fontWeight = '500';
         }
 
-        if (cellIndex === 5) {
+        if (cellIndex === 4) {
           td.style.fontFamily = 'monospace';
           td.style.backgroundColor = '#f0f9ff';
         }
@@ -496,7 +464,7 @@ export default function Admin() {
                 </Button>
               </CardTitle>
               <CardDescription>
-                I Conferência Municipal de Saúde do Trabalhador e da Trabalhadora
+                10ª Conferência Municipal de Saúde do Trabalhador e da Trabalhadora
               </CardDescription>
 
               <div className="mt-4 flex flex-col sm:flex-row gap-4">
@@ -511,19 +479,6 @@ export default function Admin() {
                 </div>
 
                 <div className="flex gap-2">
-                  <Select value={typeFilter} onValueChange={setTypeFilter}>
-                    <SelectTrigger className="w-[130px]">
-                      <Filter className="w-4 h-4 mr-2 text-blue-500" />
-                      <SelectValue placeholder="Tipo" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos</SelectItem>
-                      <SelectItem value="delegado">Delegados</SelectItem>
-                      <SelectItem value="observador">Observadores</SelectItem>
-                      <SelectItem value="convidado">Convidados</SelectItem>
-                    </SelectContent>
-                  </Select>
-
                   <Select value={statusFilter} onValueChange={setStatusFilter}>
                     <SelectTrigger className="w-[180px]">
                       <Filter className="w-4 h-4 mr-2 text-blue-500" />
@@ -557,8 +512,6 @@ export default function Admin() {
                         <TableHead>Email</TableHead>
                         <TableHead>Telefone</TableHead>
                         <TableHead>Instituição</TableHead>
-                        <TableHead>Tipo</TableHead>
-                        <TableHead>Representação</TableHead>
                         <TableHead>Código</TableHead>
                         <TableHead>Ações</TableHead>
                       </TableRow>
@@ -571,25 +524,6 @@ export default function Admin() {
                             <TableCell>{reg.email}</TableCell>
                             <TableCell>{reg.phone}</TableCell>
                             <TableCell>{reg.institution}</TableCell>
-                            <TableCell>
-                              <Badge className={reg.type === 'delegado'
-                                ? "bg-amber-100 text-amber-800 hover:bg-amber-200"
-                                : reg.type === 'observador'
-                                ? "bg-indigo-100 text-indigo-800 hover:bg-indigo-200"
-                                : "bg-green-100 text-green-800 hover:bg-green-200"}>
-                                {reg.type === 'delegado' ? 'Delegado' :
-                                 reg.type === 'observador' ? 'Observador' : 'Convidado'}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              {reg.type === 'delegado' && (
-                                <Badge variant="outline">
-                                  {reg.representation === 'usuario' ? 'Usuário' :
-                                   reg.representation === 'gestor' ? 'Gestor/Prestador' :
-                                   reg.representation === 'trabalhador' ? 'Trabalhador' : ''}
-                                </Badge>
-                              )}
-                            </TableCell>
                             <TableCell>
                               <code className="bg-gray-100 px-2 py-1 rounded text-sm">
                                 {reg.access_code}
@@ -624,7 +558,7 @@ export default function Admin() {
                         ))
                       ) : (
                         <TableRow>
-                          <TableCell colSpan={8} className="text-center py-8 text-gray-500">
+                          <TableCell colSpan={6} className="text-center py-8 text-gray-500">
                             Nenhuma inscrição encontrada com os filtros atuais
                           </TableCell>
                         </TableRow>
@@ -702,42 +636,6 @@ export default function Admin() {
                       placeholder="Nome da instituição"
                     />
                   </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="type">Tipo de Inscrição</Label>
-                    <Select
-                      value={formData.type}
-                      onValueChange={(value) => handleSelectChange("type", value)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione o tipo" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="delegado">Delegado</SelectItem>
-                        <SelectItem value="observador">Observador</SelectItem>
-                        <SelectItem value="convidado">Convidado</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {formData.type === 'delegado' && (
-                    <div className="space-y-2">
-                      <Label htmlFor="representation">Representação</Label>
-                      <Select
-                        value={formData.representation}
-                        onValueChange={(value) => handleSelectChange("representation", value)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione a representação" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="usuario">Usuário</SelectItem>
-                          <SelectItem value="gestor">Gestor/Prestador</SelectItem>
-                          <SelectItem value="trabalhador">Trabalhador</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
                 </div>
 
                 <Separator className="my-4" />

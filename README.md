@@ -1,6 +1,6 @@
-# Sistema de Conferência Municipal de Saúde
+# Sistema da 10ª Conferência Municipal de Saúde
 
-Sistema completo para gerenciamento de inscrições e emissão de certificados para conferências municipais de saúde.
+Sistema completo para gerenciamento de inscrições e emissão de certificados para a 10ª Conferência Municipal de Saúde.
 
 ## 🎯 Funcionalidades
 

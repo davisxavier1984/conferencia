@@ -240,69 +240,31 @@ export default function CertificateConfig() {
 
         {backgroundUrl && (
           <>
-            <Tabs value={activeTab} onValueChange={(value) => {
-              setActiveTab(value);
-              setCurrentElement(value === "nome" ? "name" : "type");
-            }}>
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="nome">Nome do Participante</TabsTrigger>
-                <TabsTrigger value="tipo">Tipo de Inscrição</TabsTrigger>
-              </TabsList>
+            <div className="space-y-4 mt-4">
+              <Label>Texto de Exemplo (Nome)</Label>
+              <Input
+                value={previewText}
+                onChange={(e) => setPreviewText(e.target.value)}
+                placeholder="Digite um texto para testar o posicionamento"
+                className="border-blue-200"
+              />
+            </div>
 
-              <TabsContent value="nome">
-                <div className="space-y-4 mt-4">
-                  <Label>Texto de Exemplo (Nome)</Label>
-                  <Input
-                    value={previewText}
-                    onChange={(e) => setPreviewText(e.target.value)}
-                    placeholder="Digite um texto para testar o posicionamento"
-                    className="border-blue-200"
-                  />
-                </div>
+            <div className="space-y-4">
+              <Label>Tamanho da Fonte (Nome)</Label>
+              <Slider
+                value={[fontSize]}
+                onValueChange={(value) => setFontSize(value[0])}
+                min={12}
+                max={72}
+                step={1}
+                className="w-full"
+              />
+              <div className="text-sm text-gray-500 text-center">
+                {fontSize}px
+              </div>
+            </div>
 
-                <div className="space-y-4">
-                  <Label>Tamanho da Fonte (Nome)</Label>
-                  <Slider
-                    value={[fontSize]}
-                    onValueChange={(value) => setFontSize(value[0])}
-                    min={12}
-                    max={72}
-                    step={1}
-                    className="w-full"
-                  />
-                  <div className="text-sm text-gray-500 text-center">
-                    {fontSize}px
-                  </div>
-                </div>
-              </TabsContent>
-
-              <TabsContent value="tipo">
-                <div className="space-y-4 mt-4">
-                  <Label>Texto de Exemplo (Tipo)</Label>
-                  <Input
-                    value={previewType}
-                    onChange={(e) => setPreviewType(e.target.value)}
-                    placeholder="Tipo de inscrição"
-                    className="border-blue-200"
-                  />
-                </div>
-
-                <div className="space-y-4">
-                  <Label>Tamanho da Fonte (Tipo)</Label>
-                  <Slider
-                    value={[typeFontSize]}
-                    onValueChange={(value) => setTypeFontSize(value[0])}
-                    min={12}
-                    max={72}
-                    step={1}
-                    className="w-full"
-                  />
-                  <div className="text-sm text-gray-500 text-center">
-                    {typeFontSize}px
-                  </div>
-                </div>
-              </TabsContent>
-            </Tabs>
 
             <div
               ref={containerRef}

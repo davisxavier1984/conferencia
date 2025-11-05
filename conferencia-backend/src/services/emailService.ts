@@ -46,9 +46,9 @@ export async function sendConfirmationEmail({ to, name, accessCode }: SendConfir
     const transporter = await createEmailTransporter();
 
     const info = await transporter.sendMail({
-      from: process.env.EMAIL_FROM || '"Conferência Municipal de Saúde" <noreply@conferencia.com>',
+      from: process.env.EMAIL_FROM || '"10ª Conferência Municipal de Saúde" <noreply@conferencia.com>',
       to,
-      subject: 'Confirmação de Inscrição - Conferência Municipal de Saúde',
+      subject: 'Confirmação de Inscrição - 10ª Conferência Municipal de Saúde',
       html: `
         <!DOCTYPE html>
         <html>
@@ -66,7 +66,7 @@ export async function sendConfirmationEmail({ to, name, accessCode }: SendConfir
         <body>
           <div class="container">
             <div class="header">
-              <h1>Conferência Municipal de Saúde</h1>
+              <h1>10ª Conferência Municipal de Saúde</h1>
             </div>
             <div class="content">
               <h2>Olá, ${name}!</h2>
@@ -92,7 +92,7 @@ export async function sendConfirmationEmail({ to, name, accessCode }: SendConfir
 
               <div class="footer">
                 <p>Este é um e-mail automático. Por favor, não responda.</p>
-                <p>© ${new Date().getFullYear()} Conferência Municipal de Saúde</p>
+                <p>© ${new Date().getFullYear()} 10ª Conferência Municipal de Saúde</p>
               </div>
             </div>
           </div>
@@ -112,7 +112,7 @@ export async function sendConfirmationEmail({ to, name, accessCode }: SendConfir
 
         ---
         Este é um e-mail automático. Por favor, não responda.
-        © ${new Date().getFullYear()} Conferência Municipal de Saúde
+        © ${new Date().getFullYear()} 10ª Conferência Municipal de Saúde
       `,
     });
 
