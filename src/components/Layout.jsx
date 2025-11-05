@@ -1,7 +1,6 @@
 import React from "react";
-import { Link } from "react-router-dom";
+import Link from "next/link";
 import { createPageUrl } from "@/utils";
-import { User } from "@/entities/User";
 import { Button } from "@/components/ui/button";
 import { Users } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -65,29 +64,21 @@ export default function Layout({ children, currentPageName }) {
 
   return (
     <div className="min-h-screen bg-white">
-      <style>{`
-        :root {
-          --primary: #00a0df;
-          --secondary: #ffd700;
-          --text: #333333;
-        }
-      `}</style>
-
       <header className="bg-white shadow-sm">
         <div className="container mx-auto px-4 py-3">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-            <Link to={createPageUrl("Register")}>
+            <Link href={createPageUrl("Register")}>
               <img
                 src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/cf4b5f_Designsemnome3.png"
                 alt="Logo"
-                className="h-20 object-contain"
+                className="h-20 object-contain cursor-pointer"
               />
             </Link>
 
             {isAdmin ? (
               <Link
-                to={createPageUrl("Admin")}
-                className="inline-flex items-center px-4 py-2 text-primary hover:text-primary/80"
+                href={createPageUrl("Admin")}
+                className="inline-flex items-center px-4 py-2 text-[#00a0df] hover:text-[#0089bd]"
               >
                 <Users className="w-5 h-5 mr-2" />
                 Área Administrativa
@@ -96,7 +87,7 @@ export default function Layout({ children, currentPageName }) {
               <Button
                 variant="ghost"
                 onClick={() => setShowAdminDialog(true)}
-                className="text-primary hover:text-primary/80"
+                className="text-[#00a0df] hover:text-[#0089bd]"
               >
                 <Users className="w-5 h-5 mr-2" />
                 Acesso Administrativo
