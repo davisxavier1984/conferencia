@@ -1,0 +1,37 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Registration {
+  id                String   @id @default(uuid())
+  name              String
+  cpf               String   @unique
+  email             String
+  phone             String
+  birthdate         String
+  rg                String?
+  gender            String?
+  race              String?
+  address           String?
+  city              String?
+  state             String?
+  zip_code          String?
+  delegate_type     String?
+  organization      String?
+  position          String?
+  accessCode        String   @unique
+  emailSent         Boolean  @default(false)
+  certificateIssued Boolean  @default(false)
+  created_date      DateTime @default(now())
+  updated_date      DateTime @updatedAt
+
+  @@map("registrations")
+}

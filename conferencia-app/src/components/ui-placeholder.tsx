@@ -110,7 +110,7 @@ export const Slider = ({ value, onValueChange, min = 0, max = 100, step = 1, cla
 export const Tabs = ({ value, onValueChange, className, children, ...props }: any) => (
   <div className={cn("w-full", className)} {...props}>
     {React.Children.map(children, child =>
-      React.isValidElement(child) ? React.cloneElement(child as React.ReactElement<any>, { value, onValueChange }) : child
+      React.isValidElement(child) ? React.cloneElement(child as React.ReactElement<any>, { activeValue: value, onValueChange }) : child
     )}
   </div>
 )
@@ -121,10 +121,10 @@ export const TabsList = ({ className, children, ...props }: any) => (
   </div>
 )
 
-export const TabsTrigger = ({ value, className, children, ...props }: any) => (
+export const TabsTrigger = ({ value, activeValue, onValueChange, className, children, ...props }: any) => (
   <button
-    data-state={props.value === value ? "active" : "inactive"}
-    onClick={() => props.onValueChange?.(value)}
+    data-state={activeValue === value ? "active" : "inactive"}
+    onClick={() => onValueChange?.(value)}
     className={cn("inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm", className)}
     {...props}
   >
@@ -132,8 +132,8 @@ export const TabsTrigger = ({ value, className, children, ...props }: any) => (
   </button>
 )
 
-export const TabsContent = ({ value, className, children, ...props }: any) => (
-  props.value === value ? (
+export const TabsContent = ({ value, activeValue, className, children, ...props }: any) => (
+  activeValue === value ? (
     <div className={cn("mt-2 ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2", className)} {...props}>
       {children}
     </div>
